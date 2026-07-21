@@ -19,20 +19,22 @@ typedef struct
 } pair;
 
 // Array of candidates
-char *candidates[MAX];
+char candidates[MAX];
 pair pairs[MAX * (MAX - 1) / 2];
 
-int pair_count;
+int pair_count = 0;
 int candidate_count;
 
 // Function prototypes
-bool vote(int rank, char *name, int ranks[]);
+bool vote(int rank, char name, int ranks[]);
 void record_preferences(int ranks[]);
 void add_pairs(void);
 void sort_pairs(void);
 void lock_pairs(void);
 void print_winner(void);
-char *get_string(const char *prompt);
+
+void exchange(int i, int max);
+bool recursive_lock(int a, int b);
 
 int main(int argc, char *argv[])
 {
@@ -52,7 +54,7 @@ int main(int argc, char *argv[])
     }
     for (int i = 0; i < candidate_count; i++)
     {
-        candidates[i] = argv[i + 1];
+        candidates[i] = argv[i + 1][0];
     }
 
     // Clear graph of locked in pairs
@@ -78,11 +80,9 @@ int main(int argc, char *argv[])
         // Query for each rank
         for (int j = 0; j < candidate_count; j++)
         {
-
-
-            char prompt[50];
-            snprintf(prompt, sizeof(prompt), "Rank %i: ", j + 1);
-            char *name = get_string(prompt);
+            char name;
+            printf("Rank %i: ", j + 1);
+            scanf("%c", &name);
 
             if (!vote(j, name, ranks))
             {
@@ -104,89 +104,167 @@ int main(int argc, char *argv[])
 }
 
 // Update ranks given a new vote
-bool vote(int rank, char *name, int ranks[])
+bool vote(int rank, char name, int ranks[])
 {
-    // TODO
-    return false;
+    // Check if name is a match for a valid candidate
+    bool found = false;
+    for(int i = 0; i < candidate_count; i++)
+    {
+        if(candidates[i] == name)
+        {
+            found = true;
+            break;
+        }
+    }
+    if(!found)
+    {
+        return false;
+    }
+    // Check if the voter didn't choose already the candidate
+    for(int i = 0; i < rank; i++)
+    {
+        if(ranks[i] == name)
+        {
+            return false;
+        }
+    }
+    // Record the rank
+    for(int i = 0; i < candidate_count; i++)
+    {
+        if(candidates[i] == name)
+        {
+            ranks[rank] = i;
+            return true;
+        }
+    }
 }
 
 // Update preferences given one voter's ranks
 void record_preferences(int ranks[])
 {
-    // TODO
-    return;
+    for(int i = 0; i < candidate_count; i++)
+    {
+        for(int j = i + 1; j < candidate_count; j++)
+        {
+            preferences[ranks[i]][ranks[j]] += 1;
+        }
+    }
 }
 
 // Record pairs of candidates where one is preferred over the other
 void add_pairs(void)
 {
-    // TODO
-    return;
+    pair pr;
+    for(int i = 0; i < candidate_count; i++)
+    {
+        for(int j = 0; j < candidate_count; j++)
+        {
+            if(i == j)
+            {
+                continue;
+            }
+            if(preferences[i][j] > preferences[j][i])
+            {
+                pr.winner = i;
+                pr.loser = j;
+                pairs[pair_count++] = pr;
+            }
+            else if(preferences[i][j] < preferences[j][i])
+            {
+                pr.winner = j;
+                pr.loser = i;
+                pairs[pair_count++] = pr;
+            }
+        }
+    }
+}
+
+void exchange(int i, int max)
+{
+    pair tmp = pairs[i];
+    pairs[i] = pairs[max];
+    pairs[max] = tmp;
 }
 
 // Sort pairs in decreasing order by strength of victory
 void sort_pairs(void)
 {
-    // TODO
-    return;
+    for(int i = 0; i < pair_count; i++)
+    {
+        for(int j = i; j > 0; j--)
+        {
+            if(pairs[j].winner > pairs[j-1].winner)
+            {
+                exchange(j, j-1);
+            }
+            else
+            {
+                break;
+            }
+        }
+    }
 }
 
 // Lock pairs into the candidate graph in order, without creating cycles
 void lock_pairs(void)
 {
-    // TODO
-    return;
+    for(int i = 0; i < pair_count; i++)
+    {
+        if (recursive_lock(pairs[i].winner, pairs[i].loser))
+        {
+            locked[pairs[i].winner][pairs[i].loser] = true;
+        }
+    }
 }
+
 
 // Print the winner of the election
 void print_winner(void)
 {
-    // TODO
-    return;
+    bool has_won;
+    for(int i = 0; i < candidate_count; i++)
+    {
+        has_won = true;
+        for(int j = 0; j < candidate_count; j++)
+        {
+            if(i == j)
+            {
+                continue;
+            }
+            if(locked[j][i])
+            {
+                has_won = false;
+                break;
+            }
+        }
+        if(has_won)
+        {
+            printf("%c has won the election.", candidates[i]);
+            break;
+        }
+    }
 }
 
 
-
-char *get_string(const char *prompt) {
-    if (prompt != NULL) {
-        printf("%s", prompt);
-        fflush(stdout); // Ensure prompt is printed immediately
+bool recursive_lock(int x, int y)
+{
+    if (x == y)
+    {
+        return false;
     }
 
-    size_t size = 64;  // Initial buffer size
-    size_t len = 0;
-    char *buffer = malloc(size);
-    if (!buffer) {
-        fprintf(stderr, "Memory allocation failed.\n");
-        return NULL;
-    }
-
-    int ch;
-    while ((ch = getchar()) != '\n' && ch != EOF) {
-        buffer[len++] = (char)ch;
-
-        // Resize buffer if needed
-        if (len >= size) {
-            size_t new_size = size * 2;
-            char *temp = realloc(buffer, new_size);
-            if (!temp) {
-                free(buffer);
-                fprintf(stderr, "Memory reallocation failed.\n");
-                return NULL;
+    for (int i = 0; i < candidate_count; i++)
+    {
+        if (locked[i][x])
+        {
+            if (!recursive_lock(i, y))
+            {
+                return false;
             }
-            buffer = temp;
-            size = new_size;
         }
     }
 
-    // Null-terminate the string
-    buffer[len] = '\0';
-
-    // If EOF and no input, return NULL
-    if (len == 0 && ch == EOF) {
-        free(buffer);
-        return NULL;
-    }
-
-    return buffer;
+    return true;
 }
+
+
