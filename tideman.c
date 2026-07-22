@@ -72,6 +72,7 @@ int main(int argc, char *argv[])
     scanf("%i", &voter_count);
 
     // Query for votes
+    char name;
     for (int i = 0; i < voter_count; i++)
     {
         // ranks[i] is voter's ith preference
@@ -80,9 +81,8 @@ int main(int argc, char *argv[])
         // Query for each rank
         for (int j = 0; j < candidate_count; j++)
         {
-            char name;
             printf("Rank %i: ", j + 1);
-            scanf("%c", &name);
+            scanf(" %c", &name);
 
             if (!vote(j, name, ranks))
             {
